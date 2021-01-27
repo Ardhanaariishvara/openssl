@@ -535,6 +535,12 @@ B<SSL_OP_ENABLE_KTLS>.
 B<StrictCertCheck>: Enable strict certificate checking. Equivalent to
 setting B<SSL_CERT_FLAG_TLS_STRICT> with SSL_CTX_set_cert_flags().
 
+B<ClientRPK>: Enables use of raw public keys (RFC7250) by the client for identity.
+Equivalent to B<SSL_OP_RPK_CLIENT>.
+
+B<ServerRPK>: Enables use of raw public keys (RFC7250) by the server for identity.
+Equivalent to B<SSL_OP_RPK_SERVER>.
+
 =item B<VerifyMode>
 
 The B<value> argument is a comma separated list of flags to set.
