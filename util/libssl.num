@@ -524,3 +524,8 @@ SSL_client_hello_get_extension_order    ?	3_1_0	EXIST::FUNCTION:
 OSSL_QUIC_client_method                 ?	3_1_0	EXIST::FUNCTION:QUIC
 OSSL_QUIC_client_thread_method          ?	3_1_0	EXIST::FUNCTION:QUIC
 OSSL_QUIC_server_method                 ?	3_1_0	EXIST::FUNCTION:QUIC
+SSL_add1_expected_peer_rpk              ?	3_1_0	EXIST::FUNCTION:RPK
+SSL_get0_peer_rpk                       ?	3_1_0	EXIST::FUNCTION:RPK
+SSL_SESSION_get0_peer_rpk               ?	3_1_0	EXIST::FUNCTION:RPK
+SSL_rpk_send_negotiated                 ?	3_1_0	EXIST::FUNCTION:RPK
+SSL_rpk_receive_negotiated              ?	3_1_0	EXIST::FUNCTION:RPK

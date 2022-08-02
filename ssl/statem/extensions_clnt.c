@@ -2023,3 +2023,115 @@ int tls_parse_stoc_psk(SSL_CONNECTION *s, PACKET *pkt,
 
     return 1;
 }
+
+#ifndef OPENSSL_NO_RPK
+EXT_RETURN tls_construct_ctos_client_cert_type(SSL_CONNECTION *sc, WPACKET *pkt,
+                                               unsigned int context,
+                                               X509 *x, size_t chainidx)
+{
+    sc->ext.client_cert_type_ctos = 0;
+    if (sc->options & SSL_OP_RPK_CLIENT) {
+        if (!WPACKET_put_bytes_u16(pkt, TLSEXT_TYPE_client_cert_type)
+                || !WPACKET_start_sub_packet_u16(pkt)
+                || !WPACKET_start_sub_packet_u8(pkt)
+                || !WPACKET_put_bytes_u8(pkt, TLSEXT_cert_type_rpk)
+                || !WPACKET_put_bytes_u8(pkt, TLSEXT_cert_type_x509)
+                || !WPACKET_close(pkt)
+                || !WPACKET_close(pkt)) {
+            SSLfatal(sc, SSL_AD_INTERNAL_ERROR, ERR_R_INTERNAL_ERROR);
+            return EXT_RETURN_FAIL;
+        }
+        sc->ext.client_cert_type_ctos = 1;
+        return EXT_RETURN_SENT;
+    }
+    return EXT_RETURN_NOT_SENT;
+}
+
+int tls_parse_stoc_client_cert_type(SSL_CONNECTION *sc, PACKET *pkt,
+                                    unsigned int context,
+                                    X509 *x, size_t chainidx)
+{
+    unsigned int type;
+
+    /* To help with debugging, make each error it's own line */
+    if (PACKET_remaining(pkt) != 1) {
+        SSLfatal(sc, SSL_AD_DECODE_ERROR, SSL_R_BAD_EXTENSION);
+        return 0;
+    }
+    if (!PACKET_get_1(pkt, &type)) {
+        SSLfatal(sc, SSL_AD_DECODE_ERROR, SSL_R_BAD_EXTENSION);
+        return 0;
+    }
+    if (type != TLSEXT_cert_type_x509 && type != TLSEXT_cert_type_rpk) {
+        SSLfatal(sc, SSL_AD_UNSUPPORTED_CERTIFICATE, SSL_R_BAD_VALUE);
+        return 0;
+    }
+    /* We did not send/ask for this */
+    if (!sc->ext.client_cert_type_ctos) {
+        SSLfatal(sc, SSL_AD_DECODE_ERROR, SSL_R_BAD_EXTENSION);
+        return 0;
+    }
+    /* We don't have this enabled */
+    if (!(sc->options & SSL_OP_RPK_CLIENT)) {
+        SSLfatal(sc, SSL_AD_DECODE_ERROR, ERR_R_DISABLED);
+        return 0;
+    }
+    sc->ext.client_cert_type = type;
+    return 1;
+}
+
+EXT_RETURN tls_construct_ctos_server_cert_type(SSL_CONNECTION *sc, WPACKET *pkt,
+                                               unsigned int context,
+                                               X509 *x, size_t chainidx)
+{
+    sc->ext.server_cert_type_ctos = 0;
+    if (sc->options & SSL_OP_RPK_SERVER) {
+        if (!WPACKET_put_bytes_u16(pkt, TLSEXT_TYPE_server_cert_type)
+                || !WPACKET_start_sub_packet_u16(pkt)
+                || !WPACKET_start_sub_packet_u8(pkt)
+                || !WPACKET_put_bytes_u8(pkt, TLSEXT_cert_type_rpk)
+                || !WPACKET_put_bytes_u8(pkt, TLSEXT_cert_type_x509)
+                || !WPACKET_close(pkt)
+                || !WPACKET_close(pkt)) {
+            SSLfatal(sc, SSL_AD_INTERNAL_ERROR, ERR_R_INTERNAL_ERROR);
+            return EXT_RETURN_FAIL;
+        }
+        sc->ext.server_cert_type_ctos = 1;
+        return EXT_RETURN_SENT;
+    }
+    return EXT_RETURN_NOT_SENT;
+}
+
+int tls_parse_stoc_server_cert_type(SSL_CONNECTION *sc, PACKET *pkt,
+                                    unsigned int context,
+                                    X509 *x, size_t chainidx)
+{
+    unsigned int type;
+
+    /* To help with debugging, make each error it's own line */
+    if (PACKET_remaining(pkt) != 1) {
+        SSLfatal(sc, SSL_AD_DECODE_ERROR, SSL_R_BAD_EXTENSION);
+        return 0;
+    }
+    if (!PACKET_get_1(pkt, &type)) {
+        SSLfatal(sc, SSL_AD_DECODE_ERROR, SSL_R_BAD_EXTENSION);
+        return 0;
+    }
+    if (type != TLSEXT_cert_type_x509 && type != TLSEXT_cert_type_rpk) {
+        SSLfatal(sc, SSL_AD_UNSUPPORTED_CERTIFICATE, SSL_R_BAD_VALUE);
+        return 0;
+    }
+    /* We did not send/ask for this */
+    if (!sc->ext.server_cert_type_ctos) {
+        SSLfatal(sc, SSL_AD_DECODE_ERROR, SSL_R_BAD_EXTENSION);
+        return 0;
+    }
+    /* We don't have this enabled */
+    if (!(sc->options & SSL_OP_RPK_SERVER)) {
+        SSLfatal(sc, SSL_AD_DECODE_ERROR, ERR_R_DISABLED);
+        return 0;
+    }
+    sc->ext.server_cert_type = type;
+    return 1;
+}
+#endif

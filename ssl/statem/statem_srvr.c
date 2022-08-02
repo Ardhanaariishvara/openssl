@@ -45,6 +45,15 @@ IMPLEMENT_ASN1_FUNCTIONS(GOST_KX_MESSAGE)
 
 static int tls_construct_encrypted_extensions(SSL_CONNECTION *s, WPACKET *pkt);
 
+static ossl_inline int received_client_cert(SSL_CONNECTION *sc)
+{
+#ifndef OPENSSL_NO_RPK
+    return sc->session->peer_rpk != NULL || sc->session->peer != NULL;
+#else
+    return sc->session->peer != NULL;
+#endif
+}
+
 /*
  * ossl_statem_server13_read_transition() encapsulates the logic for the allowed
  * handshake state transitions when a TLSv1.3 server is reading messages from
@@ -99,7 +108,7 @@ static int ossl_statem_server13_read_transition(SSL_CONNECTION *s, int mt)
         break;
 
     case TLS_ST_SR_CERT:
-        if (s->session->peer == NULL) {
+        if (!received_client_cert(s)) {
             if (mt == SSL3_MT_FINISHED) {
                 st->hand_state = TLS_ST_SR_FINISHED;
                 return 1;
@@ -232,7 +241,7 @@ int ossl_statem_server_read_transition(SSL_CONNECTION *s, int mt)
          * the case of static DH). In that case |st->no_cert_verify| should be
          * set.
          */
-        if (s->session->peer == NULL || st->no_cert_verify) {
+        if (!received_client_cert(s) || st->no_cert_verify) {
             if (mt == SSL3_MT_CHANGE_CIPHER_SPEC) {
                 /*
                  * For the ECDH ciphersuites when the client sends its ECDH
@@ -3169,7 +3178,7 @@ static int tls_process_cke_gost(SSL_CONNECTION *s, PACKET *pkt)
      * EVP_PKEY_derive_set_peer, because it is completely valid to use a
      * client certificate for authorization only.
      */
-    client_pub_pkey = X509_get0_pubkey(s->session->peer);
+    client_pub_pkey = tls_get_peer_pkey(s);
     if (client_pub_pkey) {
         if (EVP_PKEY_derive_set_peer(pkey_ctx, client_pub_pkey) <= 0)
             ERR_clear_error();
@@ -3411,7 +3420,7 @@ WORK_STATE tls_post_process_client_key_exchange(SSL_CONNECTION *s,
     }
 #endif
 
-    if (s->statem.no_cert_verify || !s->session->peer) {
+    if (s->statem.no_cert_verify || !received_client_cert(s)) {
         /*
          * No certificate verify or no peer certificate so we no longer need
          * the handshake_buffer
@@ -3439,6 +3448,79 @@ WORK_STATE tls_post_process_client_key_exchange(SSL_CONNECTION *s,
     return WORK_FINISHED_CONTINUE;
 }
 
+#ifndef OPENSSL_NO_RPK
+MSG_PROCESS_RETURN tls_process_client_rpk(SSL_CONNECTION *sc, PACKET *pkt)
+{
+    MSG_PROCESS_RETURN ret = MSG_PROCESS_ERROR;
+    SSL_SESSION *new_sess = NULL;
+    EVP_PKEY *peer_rpk = NULL;
+
+    if (!tls_process_rpk(sc, pkt, &peer_rpk)) {
+        /* SSLfatal() already called */
+        goto err;
+    }
+
+    /*
+     * Sessions must be immutable once they go into the session cache. Otherwise
+     * we can get multi-thread problems. Therefore we don't "update" sessions,
+     * we replace them with a duplicate. Here, we need to do this every time
+     * a new RPK (or certificate) is received via post-handshake authentication,
+     * as the session may have already gone into the session cache.
+     */
+
+    if (sc->post_handshake_auth == SSL_PHA_REQUESTED) {
+        if ((new_sess = ssl_session_dup(sc->session, 0)) == NULL) {
+            SSLfatal(sc, SSL_AD_INTERNAL_ERROR, ERR_R_MALLOC_FAILURE);
+            goto err;
+        }
+
+        SSL_SESSION_free(sc->session);
+        sc->session = new_sess;
+    }
+
+    X509_free(sc->session->peer);
+    sc->session->peer = NULL;
+    sc->session->verify_result = X509_V_OK;
+
+    sk_X509_pop_free(sc->session->peer_chain, X509_free);
+    sc->session->peer_chain = NULL;
+
+    if (!EVP_PKEY_up_ref(peer_rpk)) {
+        SSLfatal(sc, SSL_AD_INTERNAL_ERROR, ERR_R_INTERNAL_ERROR);
+        goto err;
+    }
+    EVP_PKEY_free(sc->session->peer_rpk);
+    sc->session->peer_rpk = peer_rpk;
+
+    /*
+     * Freeze the handshake buffer. For <TLS1.3 we do this after the CKE
+     * message
+     */
+    if (SSL_CONNECTION_IS_TLS13(sc)) {
+        if (!ssl3_digest_cached_records(sc, 1)) {
+            /* SSLfatal() already called */
+            goto err;
+        }
+
+        /* Save the current hash state for when we receive the CertificateVerify */
+        if (!ssl_handshake_hash(sc, sc->cert_verify_hash,
+                                sizeof(sc->cert_verify_hash),
+                                &sc->cert_verify_hash_len)) {
+            /* SSLfatal() already called */;
+            goto err;
+        }
+
+        /* resend session tickets */
+        sc->sent_tickets = 0;
+    }
+
+    ret = MSG_PROCESS_CONTINUE_READING;
+
+ err:
+    return ret;
+}
+#endif
+
 MSG_PROCESS_RETURN tls_process_client_certificate(SSL_CONNECTION *s,
                                                   PACKET *pkt)
 {
@@ -3452,6 +3534,16 @@ MSG_PROCESS_RETURN tls_process_client_certificate(SSL_CONNECTION *s,
     size_t chainidx;
     SSL_SESSION *new_sess = NULL;
     SSL_CTX *sctx = SSL_CONNECTION_GET_CTX(s);
+
+#ifndef OPENSSL_NO_RPK
+    if (s->ext.client_cert_type == TLSEXT_cert_type_rpk)
+        return tls_process_client_rpk(s, pkt);
+    if (s->ext.client_cert_type != TLSEXT_cert_type_x509) {
+        SSLfatal(s, SSL_AD_UNSUPPORTED_CERTIFICATE,
+                 SSL_R_UNKNOWN_CERTIFICATE_TYPE);
+        goto err;
+    }
+#endif
 
     /*
      * To get this far we must have read encrypted data from the client. We no
@@ -3591,6 +3683,10 @@ MSG_PROCESS_RETURN tls_process_client_certificate(SSL_CONNECTION *s,
     OSSL_STACK_OF_X509_free(s->session->peer_chain);
     s->session->peer_chain = sk;
     sk = NULL;
+#ifndef OPENSSL_NO_RPK
+    EVP_PKEY_free(s->session->peer_rpk);
+    s->session->peer_rpk = NULL;
+#endif
 
     /*
      * Freeze the handshake buffer. For <TLS1.3 we do this after the CKE
@@ -3644,10 +3740,30 @@ int tls_construct_server_certificate(SSL_CONNECTION *s, WPACKET *pkt)
         SSLfatal(s, SSL_AD_INTERNAL_ERROR, ERR_R_INTERNAL_ERROR);
         return 0;
     }
+# ifdef OPENSSL_NO_RPK
     if (!ssl3_output_cert_chain(s, pkt, cpk)) {
         /* SSLfatal() already called */
         return 0;
     }
+# else
+    switch (s->ext.server_cert_type) {
+    case TLSEXT_cert_type_rpk:
+        if (!tls_output_rpk(s, pkt, cpk)) {
+            /* SSLfatal() already called */
+            return 0;
+        }
+        break;
+    case TLSEXT_cert_type_x509:
+        if (!ssl3_output_cert_chain(s, pkt, cpk)) {
+            /* SSLfatal() already called */
+            return 0;
+        }
+        break;
+    default:
+        SSLfatal(s, SSL_AD_INTERNAL_ERROR, ERR_R_INTERNAL_ERROR);
+        return 0;
+    }
+#endif
 
     return 1;
 }

@@ -397,7 +397,11 @@ static int cmd_Options(SSL_CONF_CTX *cctx, const char *value)
         SSL_FLAG_TBL_INV("ExtendedMasterSecret", SSL_OP_NO_EXTENDED_MASTER_SECRET),
         SSL_FLAG_TBL_INV("CANames", SSL_OP_DISABLE_TLSEXT_CA_NAMES),
         SSL_FLAG_TBL("KTLS", SSL_OP_ENABLE_KTLS),
-        SSL_FLAG_TBL_CERT("StrictCertCheck", SSL_CERT_FLAG_TLS_STRICT)
+        SSL_FLAG_TBL_CERT("StrictCertCheck", SSL_CERT_FLAG_TLS_STRICT),
+#ifndef OPENSSL_NO_RPK
+        SSL_FLAG_TBL("ServerRPK", SSL_OP_RPK_SERVER),
+        SSL_FLAG_TBL("ClientRPK", SSL_OP_RPK_CLIENT),
+#endif
     };
     if (value == NULL)
         return -3;
