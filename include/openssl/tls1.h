@@ -228,7 +228,7 @@ extern "C" {
 #  define TLSEXT_cert_type_x509         0
 #  define TLSEXT_cert_type_pgp          1 /* recognized, but not supported */
 #  define TLSEXT_cert_type_rpk          2
-#  define TLSEXT_cert_type_1609dot2     3 /* recognized, but not supported */
+#  define TLSEXT_cert_type_1609dot2     3 /* not recommended, specific use case */
 # endif
 
 int SSL_CTX_set_tlsext_max_fragment_length(SSL_CTX *ctx, uint8_t mode);

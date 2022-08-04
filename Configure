@@ -475,6 +475,7 @@ my @disablables = (
     "rc5",
     "rdrand",
     "rfc3779",
+    "rfc8902",
     "rmd160",
     "rpk",
     "scrypt",
@@ -554,6 +555,7 @@ our %disabled = ( # "what"         => "comment"
                   "msan"                => "default",
                   "quic"                => "default",
                   "rc5"                 => "default",
+                  "rfc8902"             => "default",
                   "sctp"                => "default",
                   "ssl3"                => "default",
                   "ssl3-method"         => "default",
@@ -652,7 +654,11 @@ my @disable_cascades = (
     "deprecated-3.0"    => [ "engine", "srp" ],
 
     sub { $disabled{"tls1_2"} && $disabled{"tls1_3"} }
-                        => [ "rpk" ]
+                        => [ "rpk" ],
+
+    "rfc8902"           => [ "rpk" ],
+
+    sub { $disabled{"tls1_3"} } => [ "rfc8902" ]
     );
 
 # Avoid protocol support holes.  Also disable all versions below N, if version
