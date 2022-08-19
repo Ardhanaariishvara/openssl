@@ -2444,16 +2444,16 @@ struct openssl_ssl_test_functions {
 const char *ssl_protocol_to_string(int version);
 
 #ifndef OPENSSL_NO_RPK
-static ossl_inline int tls12_rpk_and_privkey(const SSL_CONNECTION *s, int idx)
+static ossl_inline int tls12_rpk_and_privkey(const SSL_CONNECTION *sc, int idx)
 {
     /*
      * This is to check for special cases when using RPK with just
      * a private key, and NO CERTIFICATE
      */
-    return ((s->server && s->ext.server_cert_type == TLSEXT_cert_type_rpk)
-            || (!s->server && s->ext.client_cert_type == TLSEXT_cert_type_rpk))
-        && s->cert->pkeys[idx].privatekey != NULL
-        && s->cert->pkeys[idx].x509 == NULL;
+    return ((sc->server && sc->ext.server_cert_type == TLSEXT_cert_type_rpk)
+            || (!sc->server && sc->ext.client_cert_type == TLSEXT_cert_type_rpk))
+        && sc->cert->pkeys[idx].privatekey != NULL
+        && sc->cert->pkeys[idx].x509 == NULL;
 }
 
 #endif

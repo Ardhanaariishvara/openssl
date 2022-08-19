@@ -1037,14 +1037,14 @@ static int ssl_add_cert_chain(SSL_CONNECTION *s, WPACKET *pkt, CERT_PKEY *cpk)
     return 1;
 }
 
-EVP_PKEY* tls_get_peer_pkey(const SSL_CONNECTION *s)
+EVP_PKEY* tls_get_peer_pkey(const SSL_CONNECTION *sc)
 {
 #ifndef OPENSSL_NO_RPK
-    if (s->session->peer_rpk != NULL)
-        return s->session->peer_rpk;
+    if (sc->session->peer_rpk != NULL)
+        return sc->session->peer_rpk;
 #endif
-    if (s->session->peer != NULL)
-        return X509_get0_pubkey(s->session->peer);
+    if (sc->session->peer != NULL)
+        return X509_get0_pubkey(sc->session->peer);
     return NULL;
 }
 
@@ -1059,7 +1059,7 @@ int tls_process_rpk(SSL_CONNECTION *sc, PACKET *pkt, EVP_PKEY **match)
     PACKET context;
     unsigned long cert_list_len, spki_len;
     const unsigned char *spki, *spkistart;
-    SSL_CTX *ctx;
+    SSL_CTX *sctx = SSL_CONNECTION_GET_CTX(sc);
 
     *match = NULL;
     if (SSL_CONNECTION_IS_TLS13(sc)) {
@@ -1102,8 +1102,7 @@ int tls_process_rpk(SSL_CONNECTION *sc, PACKET *pkt, EVP_PKEY **match)
         goto err;
     }
     spkistart = spki;
-    ctx = SSL_CONNECTION_GET_CTX(sc);
-    if ((pkey = d2i_PUBKEY_ex(NULL, &spki, spki_len, ctx->libctx, ctx->propq)) == NULL
+    if ((pkey = d2i_PUBKEY_ex(NULL, &spki, spki_len, sctx->libctx, sctx->propq)) == NULL
             || spki != (spkistart + spki_len)) {
         SSLfatal(sc, SSL_AD_DECODE_ERROR, SSL_R_LENGTH_MISMATCH);
         goto err;
@@ -1199,8 +1198,7 @@ static int tls_add_rpk(SSL_CONNECTION *sc, WPACKET *pkt, CERT_PKEY *cpk)
 
     if (SSL_CONNECTION_IS_TLS13(sc)) {
         if (cpk->x509 != NULL) {
-            if (!tls_construct_extensions(sc, pkt, SSL_EXT_TLS1_3_CERTIFICATE,
-                                          cpk->x509, 0)) {
+            if (!tls_construct_extensions(sc, pkt, SSL_EXT_TLS1_3_CERTIFICATE, cpk->x509, 0)) {
                 /* SSLfatal() already called */
                 goto err;
             }
@@ -1219,20 +1217,20 @@ static int tls_add_rpk(SSL_CONNECTION *sc, WPACKET *pkt, CERT_PKEY *cpk)
     return ret;
 }
 
-unsigned long tls_output_rpk(SSL_CONNECTION *s, WPACKET *pkt, CERT_PKEY *cpk)
+unsigned long tls_output_rpk(SSL_CONNECTION *sc, WPACKET *pkt, CERT_PKEY *cpk)
 {
     if (!WPACKET_start_sub_packet_u24(pkt)) {
-        SSLfatal(s, SSL_AD_INTERNAL_ERROR, ERR_R_INTERNAL_ERROR);
+        SSLfatal(sc, SSL_AD_INTERNAL_ERROR, ERR_R_INTERNAL_ERROR);
         return 0;
     }
 
-    if (!tls_add_rpk(s, pkt, cpk)) {
+    if (!tls_add_rpk(sc, pkt, cpk)) {
         /* SSLfatal() already called */
         return 0;
     }
 
     if (!WPACKET_close(pkt)) {
-        SSLfatal(s, SSL_AD_INTERNAL_ERROR, ERR_R_INTERNAL_ERROR);
+        SSLfatal(sc, SSL_AD_INTERNAL_ERROR, ERR_R_INTERNAL_ERROR);
         return 0;
     }
 

@@ -1005,7 +1005,7 @@ EXT_RETURN tls_construct_ctos_psk(SSL_CONNECTION *s, WPACKET *pkt,
                                   X509 *x, size_t chainidx)
 {
 #ifndef OPENSSL_NO_TLS1_3
-    uint32_t agesec, agems = 0;
+    uint32_t now, agesec, agems = 0;
     size_t reshashsize = 0, pskhashsize = 0, binderoffset, msglen;
     unsigned char *resbinder = NULL, *pskbinder = NULL, *msgstart = NULL;
     const EVP_MD *handmd = NULL, *mdres = NULL, *mdpsk = NULL;
@@ -1062,7 +1062,8 @@ EXT_RETURN tls_construct_ctos_psk(SSL_CONNECTION *s, WPACKET *pkt,
          * this in multiple places in the code, so portability shouldn't be an
          * issue.
          */
-        agesec = (uint32_t)(time(NULL) - s->session->time);
+        now = (uint32_t)time(NULL);
+        agesec = now - (uint32_t)s->session->time;
         /*
          * We calculate the age in seconds but the server may work in ms. Due to
          * rounding errors we could overestimate the age by up to 1s. It is
@@ -2030,7 +2031,7 @@ EXT_RETURN tls_construct_ctos_client_cert_type(SSL_CONNECTION *sc, WPACKET *pkt,
                                                X509 *x, size_t chainidx)
 {
     sc->ext.client_cert_type_ctos = 0;
-    if (sc->options & SSL_OP_RPK_CLIENT) {
+    if ((sc->options & SSL_OP_RPK_CLIENT) != 0) {
         if (!WPACKET_put_bytes_u16(pkt, TLSEXT_TYPE_client_cert_type)
                 || !WPACKET_start_sub_packet_u16(pkt)
                 || !WPACKET_start_sub_packet_u8(pkt)
@@ -2072,7 +2073,7 @@ int tls_parse_stoc_client_cert_type(SSL_CONNECTION *sc, PACKET *pkt,
         return 0;
     }
     /* We don't have this enabled */
-    if (!(sc->options & SSL_OP_RPK_CLIENT)) {
+    if ((sc->options & SSL_OP_RPK_CLIENT) == 0) {
         SSLfatal(sc, SSL_AD_DECODE_ERROR, ERR_R_DISABLED);
         return 0;
     }
@@ -2085,7 +2086,7 @@ EXT_RETURN tls_construct_ctos_server_cert_type(SSL_CONNECTION *sc, WPACKET *pkt,
                                                X509 *x, size_t chainidx)
 {
     sc->ext.server_cert_type_ctos = 0;
-    if (sc->options & SSL_OP_RPK_SERVER) {
+    if ((sc->options & SSL_OP_RPK_SERVER) != 0) {
         if (!WPACKET_put_bytes_u16(pkt, TLSEXT_TYPE_server_cert_type)
                 || !WPACKET_start_sub_packet_u16(pkt)
                 || !WPACKET_start_sub_packet_u8(pkt)
@@ -2127,7 +2128,7 @@ int tls_parse_stoc_server_cert_type(SSL_CONNECTION *sc, PACKET *pkt,
         return 0;
     }
     /* We don't have this enabled */
-    if (!(sc->options & SSL_OP_RPK_SERVER)) {
+    if ((sc->options & SSL_OP_RPK_SERVER) == 0) {
         SSLfatal(sc, SSL_AD_DECODE_ERROR, ERR_R_DISABLED);
         return 0;
     }

@@ -12,16 +12,16 @@
 #include "statem_local.h"
 #include "internal/cryptlib.h"
 
-#define COOKIE_STATE_FORMAT_VERSION     1
+#define COOKIE_STATE_FORMAT_VERSION     0
 
 /*
  * 2 bytes for packet length, 2 bytes for format version, 2 bytes for
  * protocol version, 2 bytes for group id, 2 bytes for cipher id, 1 byte for
- * key_share present flag, 8 bytes for timestamp, 2 bytes for the hashlen,
+ * key_share present flag, 4 bytes for timestamp, 2 bytes for the hashlen,
  * EVP_MAX_MD_SIZE for transcript hash, 1 byte for app cookie length, app cookie
  * length bytes, SHA256_DIGEST_LENGTH bytes for the HMAC of the whole thing.
  */
-#define MAX_COOKIE_SIZE (2 + 2 + 2 + 2 + 2 + 1 + 8 + 2 + EVP_MAX_MD_SIZE + 1 \
+#define MAX_COOKIE_SIZE (2 + 2 + 2 + 2 + 2 + 1 + 4 + 2 + EVP_MAX_MD_SIZE + 1 \
                          + SSL_COOKIE_LENGTH + SHA256_DIGEST_LENGTH)
 
 /*
@@ -699,7 +699,7 @@ int tls_parse_ctos_cookie(SSL_CONNECTION *s, PACKET *pkt, unsigned int context,
     unsigned char hmac[SHA256_DIGEST_LENGTH];
     unsigned char hrr[MAX_HRR_SIZE];
     size_t rawlen, hmaclen, hrrlen, ciphlen;
-    uint64_t tm, now;
+    unsigned long tm, now;
     SSL *ssl = SSL_CONNECTION_GET_SSL(s);
     SSL_CTX *sctx = SSL_CONNECTION_GET_CTX(s);
 
@@ -802,7 +802,7 @@ int tls_parse_ctos_cookie(SSL_CONNECTION *s, PACKET *pkt, unsigned int context,
     }
 
     if (!PACKET_get_1(&cookie, &key_share)
-            || !PACKET_get_net_8(&cookie, &tm)
+            || !PACKET_get_net_4(&cookie, &tm)
             || !PACKET_get_length_prefixed_2(&cookie, &chhash)
             || !PACKET_get_length_prefixed_1(&cookie, &appcookie)
             || PACKET_remaining(&cookie) != SHA256_DIGEST_LENGTH) {
@@ -811,7 +811,7 @@ int tls_parse_ctos_cookie(SSL_CONNECTION *s, PACKET *pkt, unsigned int context,
     }
 
     /* We tolerate a cookie age of up to 10 minutes (= 60 * 10 seconds) */
-    now = time(NULL);
+    now = (unsigned long)time(NULL);
     if (tm > now || (now - tm) > 600) {
         /* Cookie is stale. Ignore it */
         return 1;
@@ -1102,7 +1102,7 @@ int tls_parse_ctos_psk(SSL_CONNECTION *s, PACKET *pkt, unsigned int context,
                 s->ext.early_data_ok = 1;
             s->ext.ticket_expected = 1;
         } else {
-            uint32_t ticket_age = 0, agesec, agems;
+            uint32_t ticket_age = 0, now, agesec, agems;
             int ret;
 
             /*
@@ -1142,7 +1142,8 @@ int tls_parse_ctos_psk(SSL_CONNECTION *s, PACKET *pkt, unsigned int context,
             }
 
             ticket_age = (uint32_t)ticket_agel;
-            agesec = (uint32_t)(time(NULL) - sess->time);
+            now = (uint32_t)time(NULL);
+            agesec = now - (uint32_t)sess->time;
             agems = agesec * (uint32_t)1000;
             ticket_age -= sess->ext.tick_age_add;
 
@@ -1763,7 +1764,7 @@ EXT_RETURN tls_construct_stoc_cookie(SSL_CONNECTION *s, WPACKET *pkt,
                                                 &ciphlen)
                /* Is there a key_share extension present in this HRR? */
             || !WPACKET_put_bytes_u8(pkt, s->s3.peer_tmp == NULL)
-            || !WPACKET_put_bytes_u64(pkt, time(NULL))
+            || !WPACKET_put_bytes_u32(pkt, (unsigned int)time(NULL))
             || !WPACKET_start_sub_packet_u16(pkt)
             || !WPACKET_reserve_bytes(pkt, EVP_MAX_MD_SIZE, &hashval1)) {
         SSLfatal(s, SSL_AD_INTERNAL_ERROR, ERR_R_INTERNAL_ERROR);
@@ -1947,10 +1948,9 @@ EXT_RETURN tls_construct_stoc_client_cert_type(SSL_CONNECTION *sc, WPACKET *pkt,
      * Note: only supposed to send this if we are going to do a cert request,
      * but TLSv1.3 could do a PHA request if the client supports it
      */
-    if ((send_certificate_request(sc)
-         || sc->post_handshake_auth == SSL_PHA_EXT_RECEIVED)
+    if ((send_certificate_request(sc) || sc->post_handshake_auth == SSL_PHA_EXT_RECEIVED)
         && sc->ext.client_cert_type_ctos
-        && (sc->options & SSL_OP_RPK_CLIENT)) {
+        && (sc->options & SSL_OP_RPK_CLIENT) != 0) {
         if (!WPACKET_put_bytes_u16(pkt, TLSEXT_TYPE_client_cert_type)
                 || !WPACKET_start_sub_packet_u16(pkt)
                 || !WPACKET_put_bytes_u8(pkt, sc->ext.client_cert_type)
@@ -1974,7 +1974,11 @@ int tls_parse_ctos_client_cert_type(SSL_CONNECTION *sc, PACKET *pkt,
     unsigned int type;
 
     /* Ignore the extension */
+<<<<<<< HEAD
     if (!(sc->options & SSL_OP_RPK_CLIENT))
+=======
+    if ((sc->options & SSL_OP_RPK_CLIENT) == 0)
+>>>>>>> tmshort/master-rpk
         return 1;
 
     if (!PACKET_as_length_prefixed_1(pkt, &supported_cert_types)
@@ -2004,7 +2008,11 @@ EXT_RETURN tls_construct_stoc_server_cert_type(SSL_CONNECTION *sc, WPACKET *pkt,
         return EXT_RETURN_NOT_SENT;
     }
 
+<<<<<<< HEAD
     if (sc->ext.server_cert_type_ctos && (sc->options & SSL_OP_RPK_SERVER)) {
+=======
+    if (sc->ext.server_cert_type_ctos && (sc->options & SSL_OP_RPK_SERVER) != 0) {
+>>>>>>> tmshort/master-rpk
         if (!WPACKET_put_bytes_u16(pkt, TLSEXT_TYPE_server_cert_type)
                 || !WPACKET_start_sub_packet_u16(pkt)
                 || !WPACKET_put_bytes_u8(pkt, sc->ext.server_cert_type)
@@ -2028,7 +2036,11 @@ int tls_parse_ctos_server_cert_type(SSL_CONNECTION *sc, PACKET *pkt,
     unsigned int type;
 
     /* Ignore the extension */
+<<<<<<< HEAD
     if (!(sc->options & SSL_OP_RPK_SERVER))
+=======
+    if ((sc->options & SSL_OP_RPK_SERVER) == 0)
+>>>>>>> tmshort/master-rpk
         return 1;
 
     if (!PACKET_as_length_prefixed_1(pkt, &supported_cert_types)

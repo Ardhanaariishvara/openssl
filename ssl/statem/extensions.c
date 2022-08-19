@@ -35,8 +35,8 @@ static int final_alpn(SSL_CONNECTION *s, unsigned int context, int sent);
 static int init_sig_algs_cert(SSL_CONNECTION *s, unsigned int context);
 static int init_sig_algs(SSL_CONNECTION *s, unsigned int context);
 #ifndef OPENSSL_NO_RPK
-static int init_server_cert_type(SSL_CONNECTION *s, unsigned int context);
-static int init_client_cert_type(SSL_CONNECTION *s, unsigned int context);
+static int init_server_cert_type(SSL_CONNECTION *sc, unsigned int context);
+static int init_client_cert_type(SSL_CONNECTION *sc, unsigned int context);
 #endif
 static int init_certificate_authorities(SSL_CONNECTION *s,
                                         unsigned int context);
@@ -1759,22 +1759,22 @@ static int final_psk(SSL_CONNECTION *s, unsigned int context, int sent)
     return 1;
 }
 #ifndef OPENSSL_NO_RPK
-static int init_server_cert_type(SSL_CONNECTION *s, unsigned int context)
+static int init_server_cert_type(SSL_CONNECTION *sc, unsigned int context)
 {
     /* Only reset when parsing client hello */
-    if (s->server) {
-        s->ext.server_cert_type_ctos = 0;
-        s->ext.server_cert_type = TLSEXT_cert_type_x509;
+    if (sc->server) {
+        sc->ext.server_cert_type_ctos = 0;
+        sc->ext.server_cert_type = TLSEXT_cert_type_x509;
     }
     return 1;
 }
 
-static int init_client_cert_type(SSL_CONNECTION *s, unsigned int context)
+static int init_client_cert_type(SSL_CONNECTION *sc, unsigned int context)
 {
     /* Only reset when parsing client hello */
-    if (s->server) {
-        s->ext.client_cert_type_ctos = 0;
-        s->ext.client_cert_type = TLSEXT_cert_type_x509;
+    if (sc->server) {
+        sc->ext.client_cert_type_ctos = 0;
+        sc->ext.client_cert_type = TLSEXT_cert_type_x509;
     }
     return 1;
 }

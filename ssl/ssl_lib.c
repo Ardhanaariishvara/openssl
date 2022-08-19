@@ -7002,7 +7002,6 @@ int SSL_add1_expected_peer_rpk(SSL *s, EVP_PKEY *pkey)
 
     if (sc == NULL || pkey == NULL)
         return 0;
-    
     if (EVP_PKEY_up_ref(pkey) < 0)
         return 0;
     if (!sk_EVP_PKEY_push(sc->peer_rpks, pkey)) {
@@ -7018,6 +7017,7 @@ int SSL_rpk_send_negotiated(const SSL *s)
 
     if (sc == NULL)
         return 0;
+
     if (sc->server)
         return sc->ext.server_cert_type == TLSEXT_cert_type_rpk;
     return sc->ext.client_cert_type == TLSEXT_cert_type_rpk;
@@ -7029,6 +7029,7 @@ int SSL_rpk_receive_negotiated(const SSL *s)
 
     if (sc == NULL)
         return 0;
+
     if (sc->server)
         return sc->ext.client_cert_type == TLSEXT_cert_type_rpk;
     return sc->ext.server_cert_type == TLSEXT_cert_type_rpk;

@@ -1289,7 +1289,7 @@ static int ssl_print_certificate(BIO *bio, int indent,
 }
 
 #ifndef OPENSSL_NO_RPK
-static int ssl_print_raw_public_key(BIO *bio, const SSL_CONNECTION *sc, int server,
+static int ssl_print_raw_public_key(BIO *bio, const SSL *ssl, int server,
                                     int indent, const unsigned char **pmsg,
                                     size_t *pmsglen)
 {
@@ -1297,7 +1297,6 @@ static int ssl_print_raw_public_key(BIO *bio, const SSL_CONNECTION *sc, int serv
     size_t clen;
     const unsigned char *msg = *pmsg;
     size_t msglen = *pmsglen;
-    SSL_CTX *ctx = SSL_CONNECTION_GET_CTX(sc);
 
     if (msglen < 3)
         return 0;
@@ -1310,7 +1309,7 @@ static int ssl_print_raw_public_key(BIO *bio, const SSL_CONNECTION *sc, int serv
     BIO_indent(bio, indent, 80);
     BIO_printf(bio, "raw_public_key, length=%d\n", (int)clen);
 
-    pkey = d2i_PUBKEY_ex(NULL, &msg, clen, ctx->libctx, NULL);
+    pkey = d2i_PUBKEY_ex(NULL, &msg, clen, ssl->ctx->libctx, NULL);
     if (pkey == NULL) {
         return 0;
     }
@@ -1341,7 +1340,7 @@ static int ssl_print_certificates(BIO *bio, const SSL_CONNECTION *sc, int server
 #ifndef OPENSSL_NO_RPK
     if ((server && sc->ext.server_cert_type == TLSEXT_cert_type_rpk)
             || (!server && sc->ext.client_cert_type == TLSEXT_cert_type_rpk)) {
-        if (!ssl_print_raw_public_key(bio, sc, server, indent, &msg, &clen))
+        if (!ssl_print_raw_public_key(bio, &sc->ssl, server, indent, &msg, &clen))
             return 0;
         if (SSL_CONNECTION_IS_TLS13(sc)
             && !ssl_print_extensions(bio, indent + 2, server,

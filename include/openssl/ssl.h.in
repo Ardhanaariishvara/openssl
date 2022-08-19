@@ -413,8 +413,11 @@ typedef int (*SSL_async_callback_fn)(SSL *s, void *arg);
 
 # define SSL_OP_RPK_SERVER                               SSL_OP_BIT(32)
 # define SSL_OP_RPK_CLIENT                               SSL_OP_BIT(33)
+<<<<<<< HEAD
 # define SSL_OP_1609_SERVER                              SSL_OP_BIT(34)
 # define SSL_OP_1609_CLIENT                              SSL_OP_BIT(35)
+=======
+>>>>>>> tmshort/master-rpk
 /*
  * Option "collections."
  */
