@@ -402,6 +402,10 @@ static int cmd_Options(SSL_CONF_CTX *cctx, const char *value)
         SSL_FLAG_TBL("ServerRPK", SSL_OP_RPK_SERVER),
         SSL_FLAG_TBL("ClientRPK", SSL_OP_RPK_CLIENT),
 #endif
+#ifndef OPENSSL_NO_RFC8902
+        SSL_FLAG_TBL("Server1609.2", SSL_OP_1609_SERVER),
+        SSL_FLAG_TBL("Client1609.2", SSL_OP_1609_CLIENT),
+#endif
     };
     if (value == NULL)
         return -3;

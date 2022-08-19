@@ -472,6 +472,9 @@ typedef enum OPTION_choice {
     OPT_ENABLE_CLIENT_RPK,
     OPT_PEER_RPK,
 #endif
+#ifndef OPENSSL_NO_RFC8902
+    OPT_ENABLE_SERVER_1609DOT2, OPT_ENABLE_CLIENT_1609DOT2,
+#endif
     OPT_SCTP_LABEL_BUG,
     OPT_KTLS,
     OPT_R_ENUM, OPT_PROV_ENUM
@@ -666,6 +669,11 @@ const OPTIONS s_client_options[] = {
     {"enable_server_rpk", OPT_ENABLE_SERVER_RPK, '-', "Enable raw public keys (RFC7250) from the server"},
     {"enable_client_rpk", OPT_ENABLE_CLIENT_RPK, '-', "Enable raw public keys (RFC7250) from the client"},
     {"peer_rpk", OPT_PEER_RPK, '<', "PEM-encoded public-key or certificate with server RPK"},
+#endif
+#ifndef OPENSSL_NO_RFC8902
+    {"enable_server_1609Dot2", OPT_ENABLE_SERVER_1609DOT2, '-', "Enable the use of ITS certificates 1609.2 (RFC8902) for the server"},
+    {"enable_server_1609Dot2", OPT_ENABLE_CLIENT_1609DOT2, '-', "Enable the use of ITS certificates 1609.2 (RFC8902) for the client"},
+// todo: come back here
 #endif
 #ifndef OPENSSL_NO_SRTP
     {"use_srtp", OPT_USE_SRTP, 's',
@@ -912,6 +920,10 @@ int s_client_main(int argc, char **argv)
     EVP_PKEY *peer_rpk = NULL;
     char *peer_rpk_file = NULL;
 #endif
+#ifnder OPENSSL_NO_RFC8902
+    int enable_server_1609 = 0;
+    int enable_client_1609 = 0;
+    // (todo) other stuff needed for 1609
 #ifndef OPENSSL_NO_SCTP
     int sctp_label_bug = 0;
 #endif
@@ -1516,6 +1528,14 @@ int s_client_main(int argc, char **argv)
             peer_rpk_file = opt_arg();
             break;
 #endif
+#ifndef OPENSSL_NO_RFC8902
+            case OPT_ENABLE_SERVER_1609DOT2:
+                enable_server_1609 = 1;
+                break;
+            case OPT_ENABLE_CLIENT_1609DOT2:
+                enable_client_1609 = 1;
+                break;
+#endif
         }
     }
 
@@ -2037,6 +2057,13 @@ int s_client_main(int argc, char **argv)
             }
         }
     }
+#endif
+
+#ifndef OPENSSL_NO_RFC8902
+    if (enable_client_1609)
+        SSL_set_options(con, SSL_OP_1609_CLIENT);
+    if (enable_server_rpk)
+        SSL_set_options(con, SSL_OP_1609_SERVER);
 #endif
 
     if (sess_in != NULL) {

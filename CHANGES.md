@@ -28,6 +28,10 @@ OpenSSL 3.1
 
    *Todd Short*
 
+ * Major refactor of the libssl record layer
+
+   *Matt Caswell*
+
  * Added a new BIO_s_dgram_mem() to read/write datagrams to memory
 
    *Matt Caswell*

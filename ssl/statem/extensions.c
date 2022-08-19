@@ -307,7 +307,7 @@ static const EXTENSION_DEFINITION ext_defs[] = {
     {
         TLSEXT_TYPE_client_cert_type,
         SSL_EXT_CLIENT_HELLO | SSL_EXT_TLS1_3_ENCRYPTED_EXTENSIONS
-        | SSL_EXT_TLS1_2_SERVER_HELLO,
+        | SSL_EXT_TLS1_3_SERVER_HELLO, // not sure i should do this, but let's say temp fix, to make it work first
         init_client_cert_type,
         tls_parse_ctos_client_cert_type, tls_parse_stoc_client_cert_type,
         tls_construct_stoc_client_cert_type, tls_construct_ctos_client_cert_type,
@@ -316,7 +316,7 @@ static const EXTENSION_DEFINITION ext_defs[] = {
     {
         TLSEXT_TYPE_server_cert_type,
         SSL_EXT_CLIENT_HELLO | SSL_EXT_TLS1_3_ENCRYPTED_EXTENSIONS
-        | SSL_EXT_TLS1_2_SERVER_HELLO,
+        | SSL_EXT_TLS1_3_SERVER_HELLO,
         init_server_cert_type,
         tls_parse_ctos_server_cert_type, tls_parse_stoc_server_cert_type,
         tls_construct_stoc_server_cert_type, tls_construct_ctos_server_cert_type,

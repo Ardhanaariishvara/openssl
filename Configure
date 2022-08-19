@@ -555,7 +555,7 @@ our %disabled = ( # "what"         => "comment"
                   "msan"                => "default",
                   "quic"                => "default",
                   "rc5"                 => "default",
-                  "rfc8902"             => "default",
+                  # "rfc8902"             => "default",
                   "sctp"                => "default",
                   "ssl3"                => "default",
                   "ssl3-method"         => "default",
